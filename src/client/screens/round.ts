@@ -57,14 +57,21 @@ function renderSpectator(room: NonNullable<AppState["room"]>): string {
   `;
 }
 
-export function bindRound(root: HTMLElement, state: AppState, actions: Actions): void {
+export function bindRound(root: HTMLElement, _state: AppState, actions: Actions): void {
   const input = root.querySelector<HTMLInputElement>("#answerInput");
   const btn = root.querySelector<HTMLButtonElement>("#submitBtn");
   if (!input || !btn) return;
 
-  input.addEventListener("input", (e) => actions.setDraftAnswer((e.target as HTMLInputElement).value));
+  input.addEventListener("input", (e) => {
+    const el = e.target as HTMLInputElement;
+    // Never write el.value back here — the DOM node already holds exactly
+    // what the user typed. We only mirror it into app state (silently, so
+    // no re-render tears down this focused node) and update the button.
+    actions.setDraftAnswer(el.value);
+    if (btn) btn.disabled = !el.value.trim();
+  });
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && state.draftAnswer.trim()) actions.submitAnswer();
+    if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) actions.submitAnswer();
   });
   btn.addEventListener("click", () => actions.submitAnswer());
   input.focus();

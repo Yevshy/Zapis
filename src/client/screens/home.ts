@@ -48,12 +48,36 @@ export function bindHome(root: HTMLElement, state: AppState, actions: Actions): 
   const input = root.querySelector<HTMLInputElement>("#joinCodeInput");
   const joinBtn = root.querySelector<HTMLButtonElement>("#joinBtn");
 
+  let composing = false;
+
+  const applyValue = (el: HTMLInputElement) => {
+    const start = el.selectionStart;
+    const raw = el.value;
+    const sanitized = raw.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6);
+    if (sanitized !== raw) {
+      el.value = sanitized;
+      const pos = Math.min(start ?? sanitized.length, sanitized.length);
+      el.setSelectionRange(pos, pos);
+    }
+    actions.setHomeJoinCode(sanitized);
+    if (joinBtn) joinBtn.disabled = sanitized.trim().length !== 6 || state.homeBusy;
+  };
+
+  input?.addEventListener("compositionstart", () => {
+    composing = true;
+  });
+  input?.addEventListener("compositionend", (e) => {
+    composing = false;
+    applyValue(e.target as HTMLInputElement);
+  });
   input?.addEventListener("input", (e) => {
-    const value = (e.target as HTMLInputElement).value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6);
-    actions.setHomeJoinCode(value);
+    // While composing (IME), don't rewrite the value out from under the
+    // in-progress composition — wait for compositionend above.
+    if (composing) return;
+    applyValue(e.target as HTMLInputElement);
   });
   input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && state.homeJoinCode.trim().length === 6) actions.joinRoomByCode();
+    if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim().length === 6) actions.joinRoomByCode();
   });
   joinBtn?.addEventListener("click", () => actions.joinRoomByCode());
 }

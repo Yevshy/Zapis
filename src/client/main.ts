@@ -84,7 +84,7 @@ const actions: Actions = {
   },
 
   setHomeJoinCode(code: string) {
-    store.set({ homeJoinCode: code });
+    store.setSilent({ homeJoinCode: code });
   },
 
   joinRoomByCode() {
@@ -101,7 +101,7 @@ const actions: Actions = {
   },
 
   setDraftAnswer(text: string) {
-    store.set({ draftAnswer: text });
+    store.setSilent({ draftAnswer: text });
   },
 
   submitAnswer() {
