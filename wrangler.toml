@@ -1,0 +1,26 @@
+name = "zapysochky"
+main = "src/worker/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# The built client (from `vite build`) is served directly by this Worker.
+# Any request that doesn't match a route below falls through to these static files.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# Durable Object binding: one GameRoom instance per room code.
+[[durable_objects.bindings]]
+name = "GAME_ROOM"
+class_name = "GameRoom"
+
+# Required migration the first time a Durable Object class is introduced.
+# Uses SQLite-backed storage (the current recommended DO storage backend),
+# which also allows the object to hibernate WebSocket connections.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom"]
+
+[observability]
+enabled = true

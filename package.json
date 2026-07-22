@@ -1,0 +1,22 @@
+{
+  "name": "zapysochky",
+  "version": "1.0.0",
+  "description": "Записочки — anonymous real-time multiplayer party game on Cloudflare Workers + Durable Objects",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "predev:worker": "mkdir -p dist && [ -f dist/index.html ] || echo '<!doctype html><title>zapysochky</title>' > dist/index.html",
+    "dev:worker": "wrangler dev",
+    "build": "vite build",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250327.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "wrangler": "^3.90.0"
+  }
+}
