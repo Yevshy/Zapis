@@ -5,19 +5,18 @@ import {
   addOrReconnectPlayer,
   advanceRoundIfComplete,
   activePlayerIds,
+  allActivePlayersReadyForNewGame,
   createInitialState,
   markDisconnected,
+  markReadyForNewGame,
   nextDisconnectDeadline,
   resolveExpiredDisconnects,
-  returnToLobby,
   startGame,
+  startNewGameFromResults,
   submitAnswer,
   toPublicState,
   type InternalRoomState
 } from "./roomState";
-
-/** How long finished results stay on screen before a fresh lobby opens automatically. */
-const AUTO_RELOBBY_MS = 18_000;
 
 interface WSAttachment {
   playerId: string;
@@ -118,6 +117,16 @@ export class GameRoom {
         await this.persistAndBroadcast();
         return;
       }
+      case "readyForNewGame": {
+        const changed = markReadyForNewGame(this.room, playerId);
+        if (!changed) return;
+        if (allActivePlayersReadyForNewGame(this.room)) {
+          startNewGameFromResults(this.room);
+        }
+        await this.scheduleNextAlarm();
+        await this.persistAndBroadcast();
+        return;
+      }
       case "ping": {
         this.send(ws, { type: "pong" });
         return;
@@ -130,6 +139,11 @@ export class GameRoom {
     const attachment = ws.deserializeAttachment() as WSAttachment | null;
     if (!attachment) return;
     markDisconnected(this.room, attachment.playerId);
+    // A disconnect can be the very thing that makes "everyone connected has
+    // pressed Нова гра" true (fewer people left to wait on).
+    if (allActivePlayersReadyForNewGame(this.room)) {
+      startNewGameFromResults(this.room);
+    }
     await this.scheduleNextAlarm();
     await this.persistAndBroadcast();
   }
@@ -140,8 +154,9 @@ export class GameRoom {
 
   // ---------------------------------------------------------------------
   // Alarms drive everything that has to happen without a client message:
-  // auto-filling "…" for players who never reconnect, and reopening the
-  // lobby a while after results are shown.
+  // auto-filling "…" for players who never reconnect. The results screen
+  // itself never times out — players leave it only by all pressing
+  // "Нова гра".
   // ---------------------------------------------------------------------
 
   async alarm(): Promise<void> {
@@ -151,27 +166,17 @@ export class GameRoom {
     const disconnectsResolved = resolveExpiredDisconnects(this.room, now);
     if (disconnectsResolved) advanceRoundIfComplete(this.room);
 
-    if (this.room.status === "finished" && this.room.finishedAt && now - this.room.finishedAt > AUTO_RELOBBY_MS) {
-      this.room = returnToLobby(this.room);
-    }
-
     await this.persistAndBroadcast();
     await this.scheduleNextAlarm();
   }
 
   private async scheduleNextAlarm(): Promise<void> {
-    const candidates: number[] = [];
     const disconnectDeadline = nextDisconnectDeadline(this.room);
-    if (disconnectDeadline !== null) candidates.push(disconnectDeadline);
-    if (this.room.status === "finished" && this.room.finishedAt) {
-      candidates.push(this.room.finishedAt + AUTO_RELOBBY_MS);
-    }
-
-    if (candidates.length === 0) {
+    if (disconnectDeadline === null) {
       await this.state.storage.deleteAlarm();
       return;
     }
-    await this.state.storage.setAlarm(Math.min(...candidates));
+    await this.state.storage.setAlarm(disconnectDeadline);
   }
 
   // ---------------------------------------------------------------------

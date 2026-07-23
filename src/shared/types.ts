@@ -46,12 +46,18 @@ export interface PublicRoomState {
   /** Server timestamp (ms) the current round began, for optional client UI. */
   roundStartedAt: number | null;
   finishedAt: number | null;
+  /**
+   * Player ids who have pressed "Нова гра" on the results screen. Only
+   * meaningful (and non-empty) once status === "finished".
+   */
+  readyForNewGamePlayerIds: string[];
 }
 
 /** Messages sent from the client to the server over the room WebSocket. */
 export type ClientMessage =
   | { type: "start" }
   | { type: "submit"; answer: string }
+  | { type: "readyForNewGame" }
   | { type: "ping" };
 
 /** Messages sent from the server to the client over the room WebSocket. */

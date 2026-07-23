@@ -48,8 +48,8 @@ function renderSpectator(room: NonNullable<AppState["room"]>): string {
         <div class="badge-icon">${ICONS.mail}</div>
         <h1 style="margin:0 0 8px;font-size:22px;">Гру вже розпочато</h1>
         <p class="muted" style="font-size:14.5px;line-height:1.6;">
-          Ви приєднались, поки грали інші. Зачекайте, будь ласка — щойно поточний сет завершиться,
-          автоматично відкриється нове лобі, і ви зможете грати.
+          Ви приєднались, поки грали інші. Зачекайте, будь ласка — щойно поточний сет завершиться
+          і всі гравці натиснуть «Нова гра», почнеться нова гра, і ви зможете грати.
         </p>
         <p class="muted" style="font-size:13px;margin-top:18px;"><span class="spinner"></span>Зараз онлайн: ${activeCount}</p>
       </div>

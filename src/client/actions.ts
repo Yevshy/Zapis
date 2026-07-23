@@ -7,4 +7,5 @@ export interface Actions {
   submitAnswer(): void;
   goHome(): void;
   showResultsPaper(index: number): void;
+  readyForNewGame(): void;
 }

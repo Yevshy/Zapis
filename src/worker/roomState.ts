@@ -25,6 +25,8 @@ export interface InternalRoomState {
   roundStartedAt: number | null;
   finishedAt: number | null;
   createdAt: number;
+  /** Player ids who pressed "Нова гра" while status === "finished". */
+  readyForNewGame: Record<string, true>;
 }
 
 export function createInitialState(code: string): InternalRoomState {
@@ -38,7 +40,8 @@ export function createInitialState(code: string): InternalRoomState {
     submissions: {},
     roundStartedAt: null,
     finishedAt: null,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    readyForNewGame: {}
   };
 }
 
@@ -88,10 +91,8 @@ export function canStart(state: InternalRoomState): boolean {
   return state.status === "lobby" && activePlayerIds(state).length >= 2;
 }
 
-/** Locks in seating order and begins round 1. Returns false if preconditions aren't met. */
-export function startGame(state: InternalRoomState): boolean {
-  if (!canStart(state)) return false;
-  const ids = activePlayerIds(state);
+/** Shuffles `ids` into a fresh seating order and resets round/paper state to begin round 1. */
+function seatAndBeginRound1(state: InternalRoomState, ids: string[]): void {
   const order = shuffle(ids);
   state.status = "playing";
   state.order = order;
@@ -100,6 +101,52 @@ export function startGame(state: InternalRoomState): boolean {
   state.submissions = { 1: {} };
   state.roundStartedAt = Date.now();
   state.finishedAt = null;
+  state.readyForNewGame = {};
+  // Everyone taking a seat in this game is an active participant, not a
+  // late-joining spectator watching the previous one.
+  for (const id of ids) {
+    const player = state.players[id];
+    if (player) player.spectator = false;
+  }
+}
+
+/** Locks in seating order and begins round 1. Returns false if preconditions aren't met. */
+export function startGame(state: InternalRoomState): boolean {
+  if (!canStart(state)) return false;
+  seatAndBeginRound1(state, activePlayerIds(state));
+  return true;
+}
+
+/**
+ * Records that `playerId` pressed "Нова гра" on the results screen. Returns
+ * true if this changed anything (i.e. they hadn't already pressed it).
+ */
+export function markReadyForNewGame(state: InternalRoomState, playerId: string): boolean {
+  if (state.status !== "finished") return false;
+  const player = state.players[playerId];
+  if (!player || !player.connected) return false;
+  if (state.readyForNewGame[playerId]) return false;
+  state.readyForNewGame[playerId] = true;
+  return true;
+}
+
+/** True once every currently-connected player has pressed "Нова гра" (and there are enough to play). */
+export function allActivePlayersReadyForNewGame(state: InternalRoomState): boolean {
+  if (state.status !== "finished") return false;
+  const ids = activePlayerIds(state);
+  return ids.length >= 2 && ids.every((id) => state.readyForNewGame[id]);
+}
+
+/**
+ * Starts a brand new game in the same room, in the same seats, for whoever
+ * is currently connected — used once every connected player has pressed
+ * "Нова гра" on the results screen. Returns false if preconditions aren't met.
+ */
+export function startNewGameFromResults(state: InternalRoomState): boolean {
+  if (state.status !== "finished") return false;
+  const ids = activePlayerIds(state);
+  if (ids.length < 2) return false;
+  seatAndBeginRound1(state, ids);
   return true;
 }
 
@@ -197,17 +244,6 @@ export function nextDisconnectDeadline(state: InternalRoomState): number | null 
   return earliest;
 }
 
-/** Resets the room to a fresh lobby, carrying over anyone still connected. */
-export function returnToLobby(state: InternalRoomState): InternalRoomState {
-  const fresh = createInitialState(state.code);
-  for (const player of Object.values(state.players)) {
-    if (player.connected) {
-      fresh.players[player.id] = { ...player, spectator: false, disconnectedAt: null };
-    }
-  }
-  return fresh;
-}
-
 export function toPublicState(state: InternalRoomState): PublicRoomState {
   const question = state.status === "playing" && state.currentRound >= 1
     ? QUESTIONS[state.currentRound - 1]
@@ -230,7 +266,8 @@ export function toPublicState(state: InternalRoomState): PublicRoomState {
     submittedPlayerIds,
     papers: state.status === "finished" ? hydratePapers(state) : null,
     roundStartedAt: state.roundStartedAt,
-    finishedAt: state.finishedAt
+    finishedAt: state.finishedAt,
+    readyForNewGamePlayerIds: state.status === "finished" ? Object.keys(state.readyForNewGame) : []
   };
 }
 

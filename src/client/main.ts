@@ -123,6 +123,10 @@ const actions: Actions = {
 
   showResultsPaper(index: number) {
     store.set({ resultsPaperIndex: index });
+  },
+
+  readyForNewGame() {
+    socket?.send({ type: "readyForNewGame" });
   }
 };
 
